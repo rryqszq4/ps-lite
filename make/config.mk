@@ -6,6 +6,12 @@
 # compiler
 CXX = g++
 
+# whether use google logging
+USE_GLOG = 1
+#
+# # whether use HDFS support during compile
+USE_HDFS = 0
+
 # optimization flag. -O0 -ggdb for debug
 # OPT = -O3 -ggdb
 
