@@ -56,7 +56,7 @@ void Van::Bind() {
   receiver_ = zmq_socket(context_, ZMQ_ROUTER);
   CHECK(receiver_ != NULL)
       << "create receiver socket failed: " << zmq_strerror(errno);
-  string addr = "tcp://*:";
+  string addr = "tcp://0.0.0.0:";
   bool retry = false;
   if (FLAGS_bind_to) {
     addr += std::to_string(FLAGS_bind_to);
@@ -77,7 +77,7 @@ void Van::Bind() {
         << "bind to " << addr << " failed: " << " " << zmq_strerror(errno);
 
     my_node_.set_port(10000 + rand() % 40000);
-    addr = "tcp://*:" + std::to_string(my_node_.port());
+    addr = "tcp://0.0.0.0:" + std::to_string(my_node_.port());
   }
 
   VLOG(1) << "BIND address " << addr;
@@ -250,9 +250,28 @@ bool Van::Recv(Message* msg, size_t* recv_bytes) {
       //   Lock l(fd_to_nodeid_mu_);
       //   fd_to_nodeid_[fd] = msg->sender;
       // }
+      if (IsScheduler() && msg->task.has_ctrl() &&
+	msg->task.ctrl().cmd() == Control::REGISTER_NODE) {
+	// it is the first time the scheduler receive message from the
+	// // sender. store the file desciptor of the sender for the monitor
+	int val[64]; size_t val_len = msg->sender.size();
+	CHECK_LT(val_len, 64*sizeof(int));
+	memcpy(val, msg->sender.data(), val_len);
+	CHECK(!zmq_getsockopt(
+		receiver_,  ZMQ_FD, (char*)val, &val_len))
+		<< "failed to get the file descriptor of " << msg->sender
+		<< ". error: " << errno << " " << zmq_strerror(errno);
+	CHECK_EQ(val_len, (size_t)4);
+	int fd = val[0];
+
+	VLOG(1) << "node [" << msg->sender << "] is on file descriptor " << fd;
+	Lock l(fd_to_nodeid_mu_);
+	fd_to_nodeid_[fd] = msg->sender;
+	}
       zmq_msg_close(zmsg);
-      if (!zmq_msg_more(zmsg)) break;
+      bool more = zmq_msg_more(zmsg);
       delete zmsg;
+      if (!more) break;
     } else {
       // copy data
       // SArray<char> data; data.CopyFrom(buf, size);

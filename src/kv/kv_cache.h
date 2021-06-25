@@ -90,7 +90,8 @@ class KVCache : public Customer {
       }
 
       kv.recv_num ++;
-      if (kv.recv_num != sys_.manager().num_servers()) return;
+      //if (kv.recv_num != sys_.manager().num_servers()) return;
+      if (kv.matched_num != kv.key.size()) return;
 
       // CHECK_EQ(kv.matched_num, kv.key.size());
       std::sort(kv.recv.begin(), kv.recv.end(), [](
@@ -180,6 +181,7 @@ class KVCache : public Customer {
       pull_data_.erase(chl);
       mu_.unlock();
     };
+    LOG(INFO) << "pull key size "<<keys.size();
     msg.set_key(keys);
     msg.task.set_key_channel(chl);
     msg.task.mutable_param()->set_push(false);

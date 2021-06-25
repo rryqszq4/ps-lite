@@ -139,6 +139,7 @@ template <typename K> void SliceMessage(
     pos[i+1] = std::lower_bound(key.begin(), key.end(), k) - key.begin();
 
     Message* ret = (*rets)[i];
+    if (pos[i] == pos[i+1]) ret->valid = false;
     if (ret->valid) {
       ret->set_key(key.Segment(pos[i], pos[i+1]));
     }
